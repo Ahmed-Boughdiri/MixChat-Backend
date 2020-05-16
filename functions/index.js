@@ -42,17 +42,14 @@ exports.createUserRecord = functions.https.onRequest((req, res) => {
 
 exports.getFreinds = functions.https.onRequest((req, res) => {
   const uid = req.body.uid;
+  console.log(uid)
   return admin
     .database()
     .ref(uid)
     .on("value", (snap) => {
       const data = snap.val();
       const freinds = data.freinds;
-      if (freinds.length === 1) {
-        res.send([]);
-      } else {
-        res.send(freinds);
-      }
+      res.send(freinds);
     });
 });
 
@@ -97,6 +94,7 @@ exports.getSuggestions = functions.https.onRequest(async (req, res) => {
           sugg.push(data);
         }
       });
+      console.log(sugg)
       res.send(sugg);
     });
 });
@@ -130,7 +128,7 @@ exports.addFreind = functions.https.onRequest(async (req, res) => {
     .ref(uid)
     .on("value", (snap) => {
       const data = snap.val();
-      freindsList = data;
+      freindsList = data.freinds;
     });
   const freindCred = {
     name: freindData.name,
@@ -150,5 +148,7 @@ exports.addFreind = functions.https.onRequest(async (req, res) => {
   });
   result.success = true;
   result.freind = freindData;
+  console.log("freindCred:",freindCred)
+  console.log("freindsList",freindsList)
   return res.send(result);
 });
