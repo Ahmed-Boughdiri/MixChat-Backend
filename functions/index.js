@@ -38,117 +38,103 @@ exports.createUserRecord = functions.https.onRequest((req, res) => {
   return admin.database().ref(data.uid).set(record);
 });
 
-//get Freinds
+// get Freinds
 
-exports.getFreinds = functions.https.onRequest((req, res) => {
+exports.getFreinds = functions.https.onRequest((req,res) =>{
   const uid = req.body.uid;
-  console.log(uid)
-  return admin
-    .database()
-    .ref(uid)
-    .on("value", (snap) => {
-      const data = snap.val();
-      const freinds = data.freinds;
-      res.send(freinds);
-    });
-});
+  return admin.database().ref(uid).on("value", snap =>{
+    const data = snap.val()
+    const result = data.freinds
+    let freindsList = []
+    result.map(f =>{
+      if(f.email !== null || f.email !== undefined){
+        freindsList.push(f)
+      }
+      return true
+    })
+    res.send(freindsList)
+  })
+})
 
-// get Suggested Freind
+// getSuggestions
 
-const notExist = (val, arr) => {
-  let test = true;
-  for (i in arr) {
-    if (arr[i].uid === val) {
-      test = false;
-      break;
-    } else {
-      test = true;
-      continue;
+const notExist = (data,freinds) =>{
+  let test = true
+  for(var i in freinds){
+    if(freinds[i].email === data){
+      test = false
+      break
     }
   }
-  return test;
-};
+  return test
+}
 
-exports.getSuggestions = functions.https.onRequest(async (req, res) => {
-  const freinds = req.body.freinds;
-  const uid = req.body.uid;
-  await admin
-    .database()
-    .ref(uid)
-    .on("value", (snap) => {
-      const data = snap.val();
-      freinds.push(data);
-    });
-  let sugg = [];
-  return admin
-    .database()
-    .ref()
-    .once("value", (snap) => {
-      snap.forEach((f) => {
-        const data = f.val();
-        if (notExist(data.uid, freinds)) {
-          const result = {
-            userName: data.userName,
-            email: data.email,
-          };
-          sugg.push(data);
+const getUserData = async(uid) =>{
+  await admin.database().ref(uid).on("value", snap =>{
+    const data = snap.val()
+    const cred = {
+      name: data.userName,
+      email: data.email,
+      uid: data.uid
+    }
+    return cred
+  })
+}
+
+exports.getSuggestions = functions.https.onRequest(async(req,res) =>{
+  const freinds = req.body.freinds
+  let sug = []
+  await admin.database().ref().once("value", snap =>{
+    snap.forEach(f =>{
+      const data = f.val()
+      if(notExist(data.email,freinds)){
+        const cred = {
+          userName: data.userName,
+          avatar: "",
+          email: data.email
         }
-      });
-      console.log(sugg)
-      res.send(sugg);
-    });
-});
+        sug.push(cred)
+      }
+    })
+  })
+  res.send(sug)
+})
 
-// addd Freind
+// add Freind
 
-exports.addFreind = functions.https.onRequest(async (req, res) => {
-  const uid = req.body.uid;
-  const freindData = req.body.freind;
-  //get Freind UID
-  const freindEmail = freindData.email;
-  let freindUID = "";
-  await admin
-    .database()
-    .ref()
-    .once("value", (snap) => {
-      snap.forEach((f) => {
-        const fData = f.val();
-        if (fData.email === freindEmail) {
-          freindUID = fData.uid;
-        }
-      });
-    });
-  let freindsList = [];
-  let result = {
-    success: false,
-    freind: null,
-  };
-  await admin
-    .database()
-    .ref(uid)
-    .on("value", (snap) => {
-      const data = snap.val();
-      freindsList = data.freinds;
-    });
-  const freindCred = {
-    name: freindData.name,
-    email: freindData.email,
-    uid: freindUID,
+const getFreindID = async(email) =>{
+  let result
+  await admin.database().ref().once("value", snap =>{
+    snap.forEach(f =>{
+      const data = f.val()
+      if(data.email === email){
+        result = data.uid
+      }
+    })
+  })
+  return result
+}
+
+exports.addFreind = functions.https.onRequest(async(req,res) =>{
+  const uid = req.body.uid
+  const freind = req.body.freind
+  const freindsList = req.body.freinds
+  const freindID = await getFreindID(freind.email)
+  const cred = {
+    name: freind.name,
+    email: freind.email,
+    uid: freindID,
     conversation: [
       {
-        owner: "null",
-        time: "null",
         content: "null",
-      },
-    ],
-  };
-  freindsList.push(freindCred);
+        time: "null",
+        owner: "null"
+      }
+    ]
+  }
+  freindsList.push(cred)
   await admin.database().ref(uid).update({
-    freinds: freindsList,
-  });
-  result.success = true;
-  result.freind = freindData;
-  console.log("freindCred:",freindCred)
-  console.log("freindsList",freindsList)
-  return res.send(result);
-});
+    freinds: freindsList
+  })
+  res.send(cred)
+})
